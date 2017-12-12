@@ -1,0 +1,9 @@
+
+Supplies:
+
+-- LED grid (3)
+CHECK -- button (2)
+-- joystick (3)
+CHECK -- LCD display (4)
+-- clock (4)
+-- sd card (4)
