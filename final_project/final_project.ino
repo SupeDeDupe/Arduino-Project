@@ -25,24 +25,24 @@
   16            4     -     2
 */
 
-/*
-  #include <Wire.h>
-  #include <LiquidCrystal_I2C.h>
-  // set the LCD address to 0x38 for a 16 chars and 2 line display
-  LiquidCrystal_I2C lcd(0x38,16,2);
 
-  String lcd_message;
-  int currentPlayer;
-  int currentScore;
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+// set the LCD address to 0x38 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x38,16,2);
 
-  long gameOverTime;
+String lcd_message;
+int currentPlayer;
+int currentScore;
 
-  int buttonPin = 5;
-  boolean isPlaying = false;
-  boolean gameOver = false;
+long gameOverTime;
 
-  const int LCD_TIMEOUT = 5000; // set to 5 sec
-*/
+int buttonPin = 22;
+boolean isPlaying;
+boolean gameOver;
+
+const int LCD_TIMEOUT = 5000; // set to 5 sec
+
 
 int maxItems = 3;
 int lastItemDrawn = 0;
@@ -95,14 +95,13 @@ int y = 5;
 
 void setup() {
 
-  /*
-    currentScore = 0;
-    currentPlayer = 1;
-    pinMode(buttonPin, INPUT);
+  currentScore = 0;
+  currentPlayer = 1;
+  pinMode(buttonPin, INPUT);
 
-    lcd.init(); //initialize the lcd
-    lcd.backlight(); //open the backlight
-  */
+  lcd.init(); //initialize the lcd
+  lcd.backlight(); //open the backlight
+  
   // initialize the I/O pins as outputs iterate over the pins:
   for (int thisPin = 0; thisPin < 8; thisPin++) {
     // initialize the output pins:
@@ -116,36 +115,54 @@ void setup() {
   Serial.begin(9600);
   pinMode(SWITCH_PIN, INPUT_PULLUP);
   delay(300);
+
+  isPlaying = false;
+  gameOver = false;
+
+  clearDisplay();
+  lcd_message = "READY";
+  updateDisplay();
+  delay(200);
   
-  for (int i = 0; i < 8; i++) {
+}
+
+void loop() {
+  
+  // if the start button is pressed, set isPlaying
+  if(digitalRead(buttonPin) == 1)
+  {
+    clearDisplay();
+    lcd_message = "GO";
+    updateDisplay();
+    delay(200);
+    
+    isPlaying = true;
+    gameOver = false;
+
+    for (int i = 0; i < 8; i++) {
     rockCols[i] = i;
     rockRows[i] = -1;
     rocksLastUpdated[i] = millis();
     rockSpeeds[i] = 0;
+    }
+  
+    avatarCol = 0;
+    lastAvatarCol = 1;
+    lastMoveTime = millis();
+    lastDrawnTime = millis();
+    lastRockUpdate = millis();
+    lastRockCreated = millis();
+    startGameTime = millis();
+  
+    for (int i = 0; i < maxItems; i++)
+    {
+      createRockSingleCol();
+    }
   }
 
-  avatarCol = 0;
-  lastAvatarCol = 1;
-  lastMoveTime = millis();
-  lastDrawnTime = millis();
-  lastRockUpdate = millis();
-  lastRockCreated = millis();
-  startGameTime = millis();
-
-  for (int i = 0; i < maxItems; i++)
+  //Serial.println(String(digitalRead(buttonPin)));
+  if (isPlaying)
   {
-    createRockSingleCol();
-  }
-}
-
-void loop() {
-  /*
-    // if the start button is pressed, set isPlaying
-    if(digitalRead(buttonPin) == 1)
-      isPlaying = true;
-  */
-  //if (isPlaying)
-  //{
 
   //int thisPixel = pixels[AVATAR_ROW][avatarCol];
   //digitalWrite(row[AVATAR_ROW], HIGH);
@@ -153,6 +170,8 @@ void loop() {
   
   // read input:
   //readSensors();
+
+  checkCollision();
 
   j_x = analogRead(Jx_PIN);
   j_y = analogRead(Jy_PIN);
@@ -170,16 +189,20 @@ void loop() {
     lastRockCreated = millis();
   }
 
-  if (millis() - startGameTime > 6000 * multiplier)
+  if (rockSpeedMin - ROCK_SPEED_MAX > 35)
   {
-    rockSpeedMin = rockSpeedMin - 30;
-    multiplier++;
+    if (millis() - startGameTime > 6000 * multiplier)
+    {
+      
+      rockSpeedMin = rockSpeedMin - 30;
+      multiplier++;
+    }
   }
 
   // draw the screen:
   refreshScreen();
 
-  //}
+  }
   /*
     if(!gameOver)
     {
@@ -193,9 +216,6 @@ void loop() {
     }
     else
     {
-      // read the clock value
-      // save the player, clock value, and score to the SD card
-
       if(millis() - gameOverTime > LCD_TIMEOUT)
       {
         gameOver = false;
@@ -214,16 +234,67 @@ void loop() {
         updateDisplay();
       }
     }*/
+    if(gameOver)
+    {
+      clearMatrix();
+      
+    }
 }
-/*
-  void updateDisplay()
+
+void checkCollision()
+{
+  for (int i = 0; i < 8; i++) 
   {
+    if(rockRows[i] == AVATAR_ROW)
+    {
+      if (rockCols[i] == avatarCol)
+      {
+        lcd_message = "GAME OVER";
+        clearDisplay();
+        updateDisplay();
+        delay(200);
+        
+        gameOver = true;
+        isPlaying = false;
+        gameOverGridUpdate();
+      }
+    }
+  }
+}
+
+void gameOverGridUpdate()
+{
+  clearMatrix();
+
+  for (int c = 0; c < 8; c++)
+  {
+    digitalWrite(col[c], LOW);
+  }
+  
+  for (int r = 0; r < 8; r++)
+  {
+    digitalWrite(row[r], HIGH);
+    delay(200);
+  }
+}
+
+void clearDisplay()
+{
+  lcd.setCursor(0,0);
+  lcd.print("                 ");
+  lcd.setCursor(0,1);
+  lcd.print("                 ");
+  delay(100);
+}
+
+void updateDisplay()
+{
   lcd.setCursor(0,0);
   lcd.print("Player: "+String(currentPlayer));
   lcd.setCursor(0,1);
   lcd.print(lcd_message);
   delay(100);
-  }*/
+}
 
 void refreshScreen() {
 
@@ -251,8 +322,8 @@ void refreshScreen() {
       case 7:
        if(rockRows[lastItemDrawn] > -1)
        {
-       digitalWrite(row[rockRows[lastItemDrawn]], HIGH);
-       digitalWrite(col[rockCols[lastItemDrawn]], LOW);
+         digitalWrite(row[rockRows[lastItemDrawn]], HIGH);
+         digitalWrite(col[rockCols[lastItemDrawn]], LOW);
        }
        break;
       case 8:
@@ -339,7 +410,7 @@ void updateAvatarPosition()
     lastAvatarCol = avatarCol;
     avatarCol++;
     lastMoveTime = millis();//moveRight
-    Serial.println(s + " - " + j_x + ":" + j_y);
+    //Serial.println(s + " - " + j_x + ":" + j_y);
     //Serial.println("1 " + String(avatarCol));
   }
   else if (avatarCol > 0 && j_y > 600)
@@ -349,7 +420,7 @@ void updateAvatarPosition()
     lastAvatarCol = avatarCol;
     avatarCol--;
     lastMoveTime = millis();// moveLeft
-    Serial.println(s + " - " + j_x + ":" + j_y);
+    //Serial.println(s + " - " + j_x + ":" + j_y);
     //Serial.println("2 " + String(avatarCol));
   }
   else
