@@ -44,22 +44,29 @@
   const int LCD_TIMEOUT = 5000; // set to 5 sec
 */
 
-int maxItems = 2;
+int maxItems = 3;
 int lastItemDrawn = 0;
+int multiplier = 1;
 
-const int ROCK_SPEED = 300;
+long startGameTime;
+
+const int ROCK_SPEED_MAX = 50;
+int rockSpeedMin = 350;
 const int REDRAW_SPEED = 1;
 const int AVATAR_SPEED = 170;
 const int AVATAR_ROW = 7;
 long lastMoveTime;
 long lastDrawnTime;
 long lastRockUpdate;
+long lastRockCreated;
 int avatarCol;
 int lastAvatarCol;
 boolean forward = true;
 
 int rockCols[8];
 int rockRows[8];
+int rockSpeeds[8];
+long rocksLastUpdated[8];
 
 // define the pins that will be used 
 int SWITCH_PIN = 52;
@@ -113,6 +120,8 @@ void setup() {
   for (int i = 0; i < 8; i++) {
     rockCols[i] = i;
     rockRows[i] = -1;
+    rocksLastUpdated[i] = millis();
+    rockSpeeds[i] = 0;
   }
 
   avatarCol = 0;
@@ -120,7 +129,13 @@ void setup() {
   lastMoveTime = millis();
   lastDrawnTime = millis();
   lastRockUpdate = millis();
-  createRock();
+  lastRockCreated = millis();
+  startGameTime = millis();
+
+  for (int i = 0; i < maxItems; i++)
+  {
+    createRockSingleCol();
+  }
 }
 
 void loop() {
@@ -145,6 +160,21 @@ void loop() {
     s = "Switch: HIGH"; 
   else
     s = "Switch: LOW";
+
+  if (millis() - lastRockCreated > 3000 / multiplier)
+  {
+    if(maxItems < 9)
+      maxItems++;
+    for(int i = 0; i < maxItems; i++)
+      createRockSingleCol();
+    lastRockCreated = millis();
+  }
+
+  if (millis() - startGameTime > 6000 * multiplier)
+  {
+    rockSpeedMin = rockSpeedMin - 30;
+    multiplier++;
+  }
 
   // draw the screen:
   refreshScreen();
@@ -254,25 +284,44 @@ void clearMatrix()
   }
 }
 
-void createRock()
+void createRockSingleCol()
 {
-  int newRockIndex = random(0, 8);
-  rockRows[newRockIndex] = 0;
+  int newRockIndex;
+  boolean allRocksDrawn = true;
+  for(int i = 0; i < 8; i++)
+  {
+    if (rockRows[newRockIndex] < 0 || rockRows[newRockIndex] > 7)
+      allRocksDrawn = false;
+  }
+  if(!allRocksDrawn)
+  {
+    do
+    {
+      newRockIndex = random(0, 8);
+    }
+    while (rockRows[newRockIndex] > -1 && rockRows[newRockIndex] < 8);
+    rockSpeeds[newRockIndex] = random(ROCK_SPEED_MAX, rockSpeedMin);
+    rockRows[newRockIndex] = 0;
+  }
 }
 
 void updateRocks()
 {
-   if (millis() - lastRockUpdate > ROCK_SPEED )//&& rockRows[0] < 8)
+   if (millis() - lastRockUpdate > ROCK_SPEED_MAX )//&& rockRows[0] < 8)
    {
-    
+
     for (int i = 0; i < 8; i++)
     {
-      if(rockRows[i] > -1)
-        rockRows[i]++;
-      if(rockRows[i] > 7)
+      if(millis() - rocksLastUpdated[i] > rockSpeeds[i])
       {
-        rockRows[i] = -1;
-        createRock();
+        if(rockRows[i] > -1)
+          rockRows[i]++;
+        if(rockRows[i] > 7)
+        {
+          rockRows[i] = -1;
+          createRockSingleCol();
+        }
+        rocksLastUpdated[i] = millis();
       }
     }
 
