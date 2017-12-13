@@ -33,15 +33,17 @@ LiquidCrystal_I2C lcd(0x38,16,2);
 
 String lcd_message;
 int currentPlayer;
-int currentScore;
+int player1Score;
+int player2Score;
 
 long gameOverTime;
 
 int buttonPin = 22;
 boolean isPlaying;
 boolean gameOver;
+String winner;
 
-const int LCD_TIMEOUT = 5000; // set to 5 sec
+const int LCD_TIMEOUT = 3000; // set to 5 sec
 
 
 int maxItems = 3;
@@ -95,7 +97,6 @@ int y = 5;
 
 void setup() {
 
-  currentScore = 0;
   currentPlayer = 1;
   pinMode(buttonPin, INPUT);
 
@@ -163,82 +164,94 @@ void loop() {
   //Serial.println(String(digitalRead(buttonPin)));
   if (isPlaying)
   {
-
-  //int thisPixel = pixels[AVATAR_ROW][avatarCol];
-  //digitalWrite(row[AVATAR_ROW], HIGH);
-  //digitalWrite(col[avatarCol], LOW);
+    checkCollision();
   
-  // read input:
-  //readSensors();
-
-  checkCollision();
-
-  j_x = analogRead(Jx_PIN);
-  j_y = analogRead(Jy_PIN);
-  if (digitalRead(SWITCH_PIN) == HIGH)
-    s = "Switch: HIGH"; 
-  else
-    s = "Switch: LOW";
-
-  if (millis() - lastRockCreated > 3000 / multiplier)
-  {
-    if(maxItems < 9)
-      maxItems++;
-    for(int i = 0; i < maxItems; i++)
-      createRockSingleCol();
-    lastRockCreated = millis();
-  }
-
-  if (rockSpeedMin - ROCK_SPEED_MAX > 35)
-  {
-    if (millis() - startGameTime > 6000 * multiplier)
-    {
-      
-      rockSpeedMin = rockSpeedMin - 30;
-      multiplier++;
-    }
-  }
-
-  // draw the screen:
-  refreshScreen();
-
-  }
-  /*
-    if(!gameOver)
-    {
-      lcd_message = String(currentScore) + " points";
-      updateDisplay();
-
-      // update the matrix screen
-
-      //gameOver = true;
-      gameOverTime = millis(); // must be after gameOver = true;
-    }
+    j_x = analogRead(Jx_PIN);
+    j_y = analogRead(Jy_PIN);
+    if (digitalRead(SWITCH_PIN) == HIGH)
+      s = "Switch: HIGH"; 
     else
+      s = "Switch: LOW";
+  
+    if (millis() - lastRockCreated > 3000 / multiplier)
     {
-      if(millis() - gameOverTime > LCD_TIMEOUT)
+      if(maxItems < 9)
+        maxItems++;
+      for(int i = 0; i < maxItems; i++)
+        createRockSingleCol();
+      lastRockCreated = millis();
+    }
+  
+    if (rockSpeedMin - ROCK_SPEED_MAX > 35)
+    {
+      if (millis() - startGameTime > 6000 * multiplier)
       {
-        gameOver = false;
-        if (currentPlayer == 1)
-          currentPlayer = 2;
-        else
-          currentPlayer = 1;
+        
+        rockSpeedMin = rockSpeedMin - 30;
+        multiplier++;
+      }
+    }
+  
+    // draw the screen:
+    refreshScreen();
 
-        lcd_message = "READY";
-        updateDisplay();
-        delay(3000);
-      }
-      else
-      {
-        lcd_message = "GAME OVER";
-        updateDisplay();
-      }
-    }*/
-    if(gameOver)
-    {
+  }
+  
+  if(gameOver)
+  {
       clearMatrix();
       
-    }
+      if(millis() - gameOverTime > LCD_TIMEOUT)
+      {
+        if(currentPlayer == 1)
+        {
+          player1Score = gameOverTime;
+          currentPlayer = 2;
+          lcd_message = "READY";
+          clearDisplay();
+          updateDisplay();
+          gameOver = false;
+        }
+        else
+        {
+          player2Score = gameOverTime;
+
+          // compare score and declare winner
+          if (player1Score > player2Score)
+            winner = "PLAYER 1 WINS!";
+          else if (player1Score < player2Score)
+            winner = "PLAYER 2 WINS!";
+          else
+            winner = "TIE";
+
+          displayScores();
+          
+          gameOver = false;
+
+          currentPlayer = 1;
+          clearDisplay();
+          lcd_message = "READY";
+          updateDisplay();
+          delay(200);
+        }
+      }
+  }
+}
+
+void displayScores()
+{
+  clearDisplay();
+  lcd.setCursor(0,0);
+  lcd.print("Player 1: " + String(player1Score / 1000));
+  lcd.setCursor(0,1);
+  lcd.print("Player 2: " + String(player2Score / 1000));
+  delay(5000);
+
+  clearDisplay();
+  lcd.setCursor(0,0);
+  lcd.print(winner);
+  
+  delay(7000);
 }
 
 void checkCollision()
@@ -257,6 +270,7 @@ void checkCollision()
         gameOver = true;
         isPlaying = false;
         gameOverGridUpdate();
+        gameOverTime = millis();
       }
     }
   }
