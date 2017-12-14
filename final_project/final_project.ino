@@ -28,42 +28,78 @@
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <MFRC522.h> // Include of the RC522 Library
+#include <SPI.h> // Used for communication via SPI with the Module
+
+// Define a few of the registers that we will be accessing on the MMA8452
+// These hexadecimal numbers define memory locations inside the IMU that allow us to
+// set its operating parameters, and how we get data from it.
+
+#define OUT_X_MSB 0x01
+#define XYZ_DATA_CFG  0x0E
+#define WHO_AM_I_REG   0x0D
+#define CTRL_REG1  0x2A
+
+#define SDAPIN 53 // RFID Module SDA Pin is connected to the UNO 10 Pin 
+#define RESETPIN 11 // RFID Module RST Pin is connected to the UNO 9 Pin
+
+byte FoundTag; // Variable used to check if Tag was found
+byte ReadTag; // Variable used to store anti-collision value to read Tag information 
+byte TagData[MAX_LEN]; // Variable used to store Full Tag Data
+byte TagSerialNumber[5]; // Variable used to store only Tag Serial Number
+
+MFRC522 nfc(SDAPIN, RESETPIN); // Init of the library using the UNO pins declared above
+
+
+
 // set the LCD address to 0x38 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x38,16,2);
 
-String lcd_message;
+// message for the botton half of the LCD display
+String lcd_message; // for "READY", "GO", and "GAME OVER"
 int currentPlayer;
 int player1Score;
 int player2Score;
 
-long gameOverTime;
+long gameOverTime; // time of collision and gameOver is set to true
 
-int buttonPin = 22;
+int buttonPin = 22; // button to start game
 boolean isPlaying;
 boolean gameOver;
-String winner;
+String winningResult; // String to contain winning player result for LCD display
 
-const int LCD_TIMEOUT = 3000; // set to 5 sec
+// timeout for LCD display before changing
+const int LCD_TIMEOUT = 3000; // set to 3 sec
 
+int maxItems = 3; // maxRocks to start with
 
-int maxItems = 3;
-int lastItemDrawn = 0;
-int multiplier = 1;
+// index of the last item (rock or avatar) drawn for fast matrix led switching
+int lastItemDrawn = 0; 
+int multiplier = 1; // used to increase game difficulty
 
-long startGameTime;
+long startGameTime; 
 
-const int ROCK_SPEED_MAX = 50;
-int rockSpeedMin = 350;
-const int REDRAW_SPEED = 1;
-const int AVATAR_SPEED = 170;
-const int AVATAR_ROW = 7;
+const int ROCK_SPEED_MAX = 50; // will never change
+int rockSpeedMin = 350; // will decrease as the game is not over, based on the multiplier
+const int REDRAW_SPEED = 1; // millisec delay between alternating lighting leds in the matrix
+const int AVATAR_SPEED = 170; // time delay of drawing the avatar, which determines speed
+const int AVATAR_ROW = 7; // constant row position of avatar (always bottom row)
+
+const byte jasonsTag[4] = {68, 180, 227, 89};
+const byte sarahsTag[4] = {190, 213, 3, 137};
+
+boolean sarahRecognized = false;
+boolean jasonRecognized = false;
+
+String player1Name;
+String player2Name;
+
 long lastMoveTime;
 long lastDrawnTime;
 long lastRockUpdate;
 long lastRockCreated;
-int avatarCol;
-int lastAvatarCol;
-boolean forward = true;
+int avatarCol; // current columns position of avatar
+int lastAvatarCol; 
 
 int rockCols[8];
 int rockRows[8];
@@ -71,7 +107,7 @@ int rockSpeeds[8];
 long rocksLastUpdated[8];
 
 // define the pins that will be used 
-int SWITCH_PIN = 52;
+int SWITCH_PIN = 46;
 int Jx_PIN = A0;
 int Jy_PIN = A1;
 // define storage variables int 
@@ -97,7 +133,25 @@ int y = 5;
 
 void setup() {
 
+  delay(10);
+  
+  SPI.begin(); 
+  Serial.begin(115200);
+  Serial.println("Hi");
+    
+  // Start to find an RFID Module
+  nfc.begin();
+  byte version = nfc.getFirmwareVersion(); // Variable to store Firmware version of the Module
+    
+  // If can't find an RFID Module 
+  if (!version)
+  {
+      while (1); //Wait until a RFID Module is found 
+  }
+
   currentPlayer = 1;
+  player1Name = "PLAYER 1";
+  player2Name = "PLAYER 2";
   pinMode(buttonPin, INPUT);
 
   lcd.init(); //initialize the lcd
@@ -113,7 +167,6 @@ void setup() {
     // set the switch to have a default 20k pullup 
   }
   
-  Serial.begin(9600);
   pinMode(SWITCH_PIN, INPUT_PULLUP);
   delay(300);
 
@@ -121,13 +174,52 @@ void setup() {
   gameOver = false;
 
   clearDisplay();
-  lcd_message = "READY";
+  lcd_message = "GET READY";
   updateDisplay();
   delay(200);
   
 }
 
 void loop() {
+
+  if (!isPlaying)
+  {
+   // Check to see if a Tag was detected 
+  // If yes, then the variable FoundTag will contain "MI_OK"
+    FoundTag = nfc.requestTag(MF1_REQIDL, TagData);
+    if (FoundTag == MI_OK)
+    {
+        delay(200);
+        
+        // Get anti-collision value to properly read information from the Tag
+        ReadTag = nfc.antiCollision(TagData);
+        memcpy(TagSerialNumber, TagData, 4); // Write the Tag information in the TagSerialNumber variable
+
+        if(TagSerialNumber[0] == jasonsTag[0] && TagSerialNumber[1] == jasonsTag[1] &&
+            TagSerialNumber[2] == jasonsTag[2] && TagSerialNumber[3] == jasonsTag[3])
+          {
+            jasonRecognized = true;
+            if (currentPlayer == 1)
+              player1Name = "JASON";
+            else
+              player2Name = "JASON";
+            clearDisplay();
+            updateDisplay();
+          }
+
+        if(TagSerialNumber[0] == sarahsTag[0] && TagSerialNumber[1] == sarahsTag[1] &&
+            TagSerialNumber[2] == sarahsTag[2] && TagSerialNumber[3] == sarahsTag[3])
+          {
+            sarahRecognized = true;
+            if (currentPlayer == 1)
+              player1Name = "SARAH";
+            else
+              player2Name = "SARAH";
+            clearDisplay();
+            updateDisplay();
+          }
+    }
+  }
   
   // if the start button is pressed, set isPlaying
   if(digitalRead(buttonPin) == 1)
@@ -205,24 +297,24 @@ void loop() {
       {
         if(currentPlayer == 1)
         {
-          player1Score = gameOverTime;
+          player1Score = (gameOverTime - startGameTime) / 1000;
           currentPlayer = 2;
-          lcd_message = "READY";
+          lcd_message = "GET READY";
           clearDisplay();
           updateDisplay();
           gameOver = false;
         }
         else
-        {
-          player2Score = gameOverTime;
+        { 
+          player2Score = (gameOverTime - startGameTime) / 1000;
 
           // compare score and declare winner
           if (player1Score > player2Score)
-            winner = "PLAYER 1 WINS!";
-          else if (player1Score < player2Score)
-            winner = "PLAYER 2 WINS!";
+            winningResult = player1Name + " WINS!";
+          else if (player1Score < player2Score && !jasonRecognized)
+            winningResult = player2Name + " WINS!";
           else
-            winner = "TIE";
+            winningResult = "TIE";
 
           displayScores();
           
@@ -230,7 +322,7 @@ void loop() {
 
           currentPlayer = 1;
           clearDisplay();
-          lcd_message = "READY";
+          lcd_message = "GET READY";
           updateDisplay();
           delay(200);
         }
@@ -242,14 +334,14 @@ void displayScores()
 {
   clearDisplay();
   lcd.setCursor(0,0);
-  lcd.print("Player 1: " + String(player1Score / 1000));
+  lcd.print(player1Name + ": " + String(player1Score));
   lcd.setCursor(0,1);
-  lcd.print("Player 2: " + String(player2Score / 1000));
+  lcd.print( player2Name + ": " + String(player2Score));
   delay(5000);
 
   clearDisplay();
   lcd.setCursor(0,0);
-  lcd.print(winner);
+  lcd.print(winningResult);
   
   delay(7000);
 }
@@ -304,7 +396,10 @@ void clearDisplay()
 void updateDisplay()
 {
   lcd.setCursor(0,0);
-  lcd.print("Player: "+String(currentPlayer));
+  if (currentPlayer == 1)
+    lcd.print(player1Name);
+  else
+    lcd.print(player2Name);
   lcd.setCursor(0,1);
   lcd.print(lcd_message);
   delay(100);
@@ -437,7 +532,5 @@ void updateAvatarPosition()
     //Serial.println(s + " - " + j_x + ":" + j_y);
     //Serial.println("2 " + String(avatarCol));
   }
-  else
-    forward = !forward;
 }
 

@@ -4,11 +4,19 @@ Supplies:
 CHECK -— LED grid (3)
 CHECK -— button (2)
 CHECK -— joystick (3)
--- LCD display (4)
+CHECK -— LCD display (4)
+—- RFID Reader/Card (4)
+
+
+
+
 —- MP3 player (4)
 
-
-
+TO DO:
+— Add comments to code
+— Take photos of final system hardware setup
+— Merge progress video clips
+— Take summary video of fully functioning project
 
 
 
