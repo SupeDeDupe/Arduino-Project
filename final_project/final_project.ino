@@ -84,12 +84,14 @@ int rockSpeedMin = 350; // will decrease as the game is not over, based on the m
 const int REDRAW_SPEED = 1; // millisec delay between alternating lighting leds in the matrix
 const int AVATAR_SPEED = 170; // time delay of drawing the avatar, which determines speed
 const int AVATAR_ROW = 7; // constant row position of avatar (always bottom row)
+const String blueTagName = "SARAH";
+const String whiteTagName = "JASON";
 
-const byte jasonsTag[4] = {68, 180, 227, 89};
-const byte sarahsTag[4] = {190, 213, 3, 137};
+const byte whiteTag[4] = {68, 180, 227, 89}; // the unique serial number for my personal RFID tag
+const byte blueTag[4] = {190, 213, 3, 137}; // the unique serial number for my personal blue RFID tag
 
-boolean sarahRecognized = false;
-boolean jasonRecognized = false;
+boolean blueRecognized = false;
+boolean whiteRecognized = false;
 
 String player1Name;
 String player2Name;
@@ -195,26 +197,26 @@ void loop() {
         ReadTag = nfc.antiCollision(TagData);
         memcpy(TagSerialNumber, TagData, 4); // Write the Tag information in the TagSerialNumber variable
 
-        if(TagSerialNumber[0] == jasonsTag[0] && TagSerialNumber[1] == jasonsTag[1] &&
-            TagSerialNumber[2] == jasonsTag[2] && TagSerialNumber[3] == jasonsTag[3])
+        if(TagSerialNumber[0] == whiteTag[0] && TagSerialNumber[1] == whiteTag[1] &&
+            TagSerialNumber[2] == whiteTag[2] && TagSerialNumber[3] == whiteTag[3])
           {
-            jasonRecognized = true;
+            whiteRecognized = true;
             if (currentPlayer == 1)
-              player1Name = "JASON";
+              player1Name = whiteTagName;
             else
-              player2Name = "JASON";
+              player2Name = whiteTagName;
             clearDisplay();
             updateDisplay();
           }
 
-        if(TagSerialNumber[0] == sarahsTag[0] && TagSerialNumber[1] == sarahsTag[1] &&
-            TagSerialNumber[2] == sarahsTag[2] && TagSerialNumber[3] == sarahsTag[3])
+        if(TagSerialNumber[0] == blueTag[0] && TagSerialNumber[1] == blueTag[1] &&
+            TagSerialNumber[2] == blueTag[2] && TagSerialNumber[3] == blueTag[3])
           {
-            sarahRecognized = true;
+            blueRecognized = true;
             if (currentPlayer == 1)
-              player1Name = "SARAH";
+              player1Name = blueTagName;
             else
-              player2Name = "SARAH";
+              player2Name = blueTagName;
             clearDisplay();
             updateDisplay();
           }
@@ -311,7 +313,7 @@ void loop() {
           // compare score and declare winner
           if (player1Score > player2Score)
             winningResult = player1Name + " WINS!";
-          else if (player1Score < player2Score && !jasonRecognized)
+          else if (player1Score < player2Score)
             winningResult = player2Name + " WINS!";
           else
             winningResult = "TIE";
